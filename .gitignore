@@ -1,0 +1,31 @@
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Docker volumes
+postgres_data/
+redis_data/
+qdrant_data/
+
+# Docker
+.docker/
+
+# Logs
+*.log
+logs/
+
+# OS
+thumbs.db
+
+# Build outputs
+dist/
+build/

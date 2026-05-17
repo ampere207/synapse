@@ -356,9 +356,6 @@ async def get_graph_edges(
     current_user: User = Depends(get_current_user),
 ):
     """Retrieve all graph edges for a meeting"""
-            "source_node_id": e.source_node_id,
-            "target_node_id": e.target_node_id,
-
     meeting = await session.get(Meeting, meeting_id)
     if not meeting:
         raise HTTPException(status_code=404, detail="Meeting not found")

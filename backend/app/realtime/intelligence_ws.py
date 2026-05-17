@@ -2,8 +2,8 @@
 import asyncio
 from datetime import datetime
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
-from sqlalchemy.ext.asyncio import AsyncSessionLocal
 from sqlalchemy import select
+from app.core.database import AsyncSessionLocal
 from app.core.security import decode_token
 from app.models.user import User
 from app.models.intelligence import GraphMutation

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth";
 import Link from "next/link";
+import { Building2, Video, UploadCloud, ArrowRight } from "lucide-react";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -63,39 +64,66 @@ export default function DashboardPage() {
               Welcome to Synapse
             </h2>
             <p className="text-slate-600 mb-8">
-              Transform your meetings into operational intelligence
+              Transform meetings, transcripts, and uploads into operational intelligence.
             </p>
           </div>
 
           {/* Quick actions */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
             <div className="bg-white rounded-lg border border-slate-200 p-6">
-              <h3 className="text-lg font-semibold text-slate-900 mb-4">
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-white">
+                <Building2 size={20} />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-3">
                 Create Organization
               </h3>
               <p className="text-slate-600 mb-4">
-                Set up a workspace for your team
+                Set up a workspace for your team, then choose how data enters the system.
               </p>
               <Link
                 href="/dashboard/create-org"
-                className="inline-block px-4 py-2 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 transition"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 transition"
               >
                 Get Started
+                <ArrowRight size={16} />
               </Link>
             </div>
 
             <div className="bg-white rounded-lg border border-slate-200 p-6">
-              <h3 className="text-lg font-semibold text-slate-900 mb-4">
-                Start a Meeting
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-600 text-white">
+                <Video size={20} />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-3">
+                Start a Live Meeting
               </h3>
               <p className="text-slate-600 mb-4">
-                Begin capturing meeting intelligence
+                Launch a realtime session with transcript capture and graph updates.
               </p>
               <Link
-                href="/workspace"
-                className="inline-block px-4 py-2 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 transition"
+                href="/workspace/live"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 transition"
               >
                 New Meeting
+                <ArrowRight size={16} />
+              </Link>
+            </div>
+
+            <div className="bg-white rounded-lg border border-slate-200 p-6">
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500 text-white">
+                <UploadCloud size={20} />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-3">
+                Upload Transcript or Audio
+              </h3>
+              <p className="text-slate-600 mb-4">
+                Import transcripts, meeting notes, captions, or audio files into a workflow draft.
+              </p>
+              <Link
+                href="/workspace/upload"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 transition"
+              >
+                Upload Files
+                <ArrowRight size={16} />
               </Link>
             </div>
           </div>
@@ -107,6 +135,10 @@ export default function DashboardPage() {
               <li className="flex items-start">
                 <span className="text-slate-400 mr-3">✓</span>
                 <span>Live meeting transcription and realtime updates</span>
+              </li>
+              <li className="flex items-start">
+                <span className="text-slate-400 mr-3">✓</span>
+                <span>Transcript and file upload workflows for non-live intake</span>
               </li>
               <li className="flex items-start">
                 <span className="text-slate-400 mr-3">✓</span>

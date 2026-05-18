@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useParams } from 'next/navigation';
@@ -12,6 +14,21 @@ import { Zap, Layers3, MessageSquareText, Clock3, Grid2X2, Activity } from 'luci
 
 type TabType = 'graph' | 'discover' | 'timeline' | 'entities' | 'execution' | 'segments';
 type LayoutMode = 'clustered' | 'timeline';
+
+type UploadDraft = {
+  meetingId: string;
+  organizationId: string;
+  title: string;
+  description?: string | null;
+  transcriptText?: string;
+  assets?: Array<{
+    name: string;
+    type: string;
+    size: number;
+    extractedText?: string | null;
+  }>;
+  createdAt: string;
+};
 
 type ExecutionStatus = 'pending' | 'in_progress' | 'completed' | 'blocked' | 'overdue';
 
@@ -119,6 +136,7 @@ const IntelligencePage: React.FC = () => {
   const [searchResults, setSearchResults] = useState<IntelligenceSearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [contextLoading, setContextLoading] = useState(false);
+  const [uploadDraft, setUploadDraft] = useState<UploadDraft | null>(null);
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -127,6 +145,27 @@ const IntelligencePage: React.FC = () => {
       setToken(localStorage.getItem('token'));
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !meetingId) {
+      return;
+    }
+
+    const draftKey = `synapse:upload-draft:${meetingId}`;
+    const draftValue = window.localStorage.getItem(draftKey);
+
+    if (!draftValue) {
+      setUploadDraft(null);
+      return;
+    }
+
+    try {
+      setUploadDraft(JSON.parse(draftValue) as UploadDraft);
+    } catch (error) {
+      console.error('Unable to parse upload draft:', error);
+      setUploadDraft(null);
+    }
+  }, [meetingId]);
 
   const fetchGraphData = useCallback(async () => {
     if (!token) return;
@@ -391,6 +430,59 @@ const IntelligencePage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {uploadDraft && (
+        <div className="mx-auto max-w-[1600px] px-4 pt-5 lg:px-6">
+          <div className="rounded-[28px] border border-amber-200 bg-amber-50/80 p-5 shadow-sm">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">Upload draft loaded</p>
+                <h2 className="mt-2 text-xl font-semibold text-amber-950">{uploadDraft.title}</h2>
+                <p className="mt-2 max-w-4xl text-sm leading-6 text-amber-900/80">
+                  {uploadDraft.description || 'This meeting was created from an uploaded transcript or file bundle.'}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm text-amber-900">
+                <div>{uploadDraft.assets?.length || 0} attached asset(s)</div>
+                <div>{uploadDraft.transcriptText?.length || 0} transcript characters</div>
+              </div>
+            </div>
+
+            {(uploadDraft.transcriptText || (uploadDraft.assets && uploadDraft.assets.length > 0)) && (
+              <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                {uploadDraft.transcriptText && (
+                  <div className="rounded-2xl border border-amber-200 bg-white p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">Transcript preview</p>
+                    <p className="mt-3 max-h-60 overflow-y-auto whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                      {uploadDraft.transcriptText}
+                    </p>
+                  </div>
+                )}
+
+                {uploadDraft.assets && uploadDraft.assets.length > 0 && (
+                  <div className="rounded-2xl border border-amber-200 bg-white p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">Attached files</p>
+                    <div className="mt-3 space-y-3">
+                      {uploadDraft.assets.map((asset) => (
+                        <div key={`${asset.name}-${asset.size}`} className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                          <div className="flex items-center justify-between gap-4">
+                            <div>
+                              <p className="font-medium text-slate-950">{asset.name}</p>
+                              <p className="text-xs text-slate-500">{asset.type}</p>
+                            </div>
+                            <span className="text-xs text-slate-500">{Math.max(1, Math.round(asset.size / 1024))} KB</span>
+                          </div>
+                          {asset.extractedText && <p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-500">{asset.extractedText.slice(0, 220)}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="mx-auto max-w-[1600px] px-4 py-5 lg:px-6">
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.8fr)_minmax(360px,0.8fr)]">

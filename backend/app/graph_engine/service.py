@@ -17,6 +17,7 @@ class GraphMutationService:
     async def create_node(
         session: AsyncSession,
         meeting_id: str,
+        organization_id: str,
         node: GraphNodePayload,
         metadata: Optional[dict] = None,
     ) -> tuple[GraphNode, GraphMutation]:
@@ -25,6 +26,7 @@ class GraphMutationService:
         db_node = GraphNode(
             id=node.id,
             meeting_id=meeting_id,
+            organization_id=organization_id,
             node_type=node.type,
             label=node.label,
             description=node.description,
@@ -36,6 +38,7 @@ class GraphMutationService:
         # Record the mutation
         mutation = await GraphMutationService._create_mutation(
             session=session,
+            organization_id=organization_id,
             meeting_id=meeting_id,
             mutation_type=MutationType.NODE_ADDED,
             payload=node.model_dump(),
@@ -88,6 +91,7 @@ class GraphMutationService:
     async def create_edge(
         session: AsyncSession,
         meeting_id: str,
+        organization_id: str,
         edge: GraphEdgePayload,
         metadata: Optional[dict] = None,
     ) -> tuple[GraphEdge, GraphMutation]:
@@ -96,6 +100,7 @@ class GraphMutationService:
         db_edge = GraphEdge(
             id=edge.id,
             meeting_id=meeting_id,
+            organization_id=organization_id,
             source_node_id=edge.source_node_id,
             target_node_id=edge.target_node_id,
             relationship_type=edge.relationship_type,
@@ -107,6 +112,7 @@ class GraphMutationService:
         # Record the mutation
         mutation = await GraphMutationService._create_mutation(
             session=session,
+            organization_id=organization_id,
             meeting_id=meeting_id,
             mutation_type=MutationType.EDGE_ADDED,
             payload=edge.model_dump(),
@@ -181,6 +187,7 @@ class GraphMutationService:
     @staticmethod
     async def _create_mutation(
         session: AsyncSession,
+        organization_id: str,
         meeting_id: str,
         mutation_type: MutationType,
         payload: dict,
@@ -201,6 +208,7 @@ class GraphMutationService:
         # Create mutation record
         mutation = GraphMutation(
             id=str(uuid.uuid4()),
+            organization_id=organization_id,
             meeting_id=meeting_id,
             mutation_type=mutation_type.value,
             sequence_number=next_sequence,

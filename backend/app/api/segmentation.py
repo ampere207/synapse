@@ -64,10 +64,17 @@ async def segment_transcript(
     
     try:
         # Get all transcript chunks for this meeting
+        transcript_result = await session.execute(
+            select(Transcript).where(Transcript.meeting_id == meeting_id)
+        )
+        transcript = transcript_result.scalars().first()
+        if not transcript:
+            raise HTTPException(status_code=400, detail="No transcript found")
+
         result = await session.execute(
             select(TranscriptChunk).where(
-                TranscriptChunk.meeting_id == meeting_id
-            ).order_by(TranscriptChunk.index)
+                TranscriptChunk.transcript_id == transcript.id
+            ).order_by(TranscriptChunk.sequence_number)
         )
         chunks = result.scalars().all()
         
@@ -80,7 +87,7 @@ async def segment_transcript(
                 "text": chunk.text,
                 "speaker": chunk.speaker,
                 "timestamp": chunk.timestamp,
-                "index": chunk.index,
+                "index": chunk.sequence_number,
             }
             for chunk in chunks
         ]
@@ -146,9 +153,16 @@ async def get_segment_metadata(
     
     try:
         # Get chunk statistics
+        transcript_result = await session.execute(
+            select(Transcript).where(Transcript.meeting_id == meeting_id)
+        )
+        transcript = transcript_result.scalars().first()
+        if not transcript:
+            raise HTTPException(status_code=400, detail="No transcript found")
+
         result = await session.execute(
             select(TranscriptChunk).where(
-                TranscriptChunk.meeting_id == meeting_id
+                TranscriptChunk.transcript_id == transcript.id
             )
         )
         chunks = result.scalars().all()

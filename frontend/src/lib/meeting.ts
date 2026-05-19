@@ -28,4 +28,14 @@ export const meetingAPI = {
     const response = await apiClient.get(`/organizations/${orgId}/meetings`);
     return response.data;
   },
+
+  importTranscript: async (data: {
+    meeting_id: string;
+    transcript_text: string;
+    source?: string;
+    title?: string;
+  }) => {
+    const response = await apiClient.post("/extraction/import-transcript", data);
+    return response.data;
+  },
 };

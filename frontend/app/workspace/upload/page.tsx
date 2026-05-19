@@ -101,6 +101,22 @@ export default function UploadWorkflowPage() {
         description: description.trim() || null,
       });
 
+      const transcriptPieces = [
+        transcriptText.trim(),
+        ...assets.map((asset) => asset.extractedText?.trim() || ""),
+      ].filter(Boolean);
+
+      const transcriptPayload = transcriptPieces.join("\n\n");
+
+      if (transcriptPayload) {
+        await meetingAPI.importTranscript({
+          meeting_id: meeting.id,
+          transcript_text: transcriptPayload,
+          source: "upload",
+          title: title.trim() || "Uploaded workflow",
+        });
+      }
+
       const draft = {
         meetingId: meeting.id,
         organizationId: organizationId.trim(),

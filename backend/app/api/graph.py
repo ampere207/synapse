@@ -65,6 +65,7 @@ async def create_graph_node(
         db_node, mutation = await GraphMutationService.create_node(
             session=session,
             meeting_id=meeting_id,
+            organization_id=meeting.organization_id,
             node=node,
         )
         await session.commit()
@@ -178,6 +179,7 @@ async def create_graph_edge(
         db_edge, mutation = await GraphMutationService.create_edge(
             session=session,
             meeting_id=meeting_id,
+            organization_id=meeting.organization_id,
             edge=edge,
         )
         await session.commit()

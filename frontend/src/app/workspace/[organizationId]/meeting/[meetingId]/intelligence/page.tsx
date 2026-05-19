@@ -137,8 +137,9 @@ const IntelligencePage: React.FC = () => {
   const [searchLoading, setSearchLoading] = useState(false);
   const [contextLoading, setContextLoading] = useState(false);
   const [uploadDraft, setUploadDraft] = useState<UploadDraft | null>(null);
+  const [refreshTick, setRefreshTick] = useState(0);
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/api\/?$/, '');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -166,6 +167,18 @@ const IntelligencePage: React.FC = () => {
       setUploadDraft(null);
     }
   }, [meetingId]);
+
+  useEffect(() => {
+    if (!uploadDraft) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setRefreshTick((value) => value + 1);
+    }, 4000);
+
+    return () => window.clearInterval(interval);
+  }, [uploadDraft]);
 
   const fetchGraphData = useCallback(async () => {
     if (!token) return;
@@ -363,6 +376,21 @@ const IntelligencePage: React.FC = () => {
       fetchTimeline();
     }
   }, [tab, fetchGraphData, fetchEntities, fetchExecutionSummary, fetchSegmentation, fetchTimeline]);
+
+  useEffect(() => {
+    if (!uploadDraft || !token) {
+      return;
+    }
+
+    if (nodes.length > 0 || entities.length > 0) {
+      return;
+    }
+
+    fetchGraphData();
+    fetchEntities();
+    fetchTimeline();
+    fetchExecutionSummary();
+  }, [uploadDraft, refreshTick, token, nodes.length, entities.length, fetchGraphData, fetchEntities, fetchTimeline, fetchExecutionSummary]);
 
   useEffect(() => {
     if (selectedNodeId) {

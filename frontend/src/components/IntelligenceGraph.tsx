@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useMemo } from 'react';
 import ReactFlow, {
   Node,
   Edge,
@@ -8,10 +8,11 @@ import ReactFlow, {
   useNodesState,
   useEdgesState,
   MarkerType,
+  Position,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
-const orderedNodeTypes = ['topic', 'decision', 'action', 'blocker', 'person', 'meeting'];
+const phaseOrder = ['meeting', 'topic', 'blocker', 'decision', 'action'];
 
 export interface GraphNode {
   id: string;
@@ -53,6 +54,15 @@ const getNodeColor = (type: string): string => {
   return nodeTypeColors[type] || '#6b7280';
 };
 
+const getDisplayType = (node: GraphNode): string => {
+  const entityType = String(node.metadata?.entity_type || node.type);
+  if (entityType === 'meeting_root') {
+    return 'meeting';
+  }
+
+  return entityType;
+};
+
 const IntelligenceGraph: React.FC<IntelligenceGraphProps> = ({
   nodes: graphNodes,
   edges: graphEdges,
@@ -64,6 +74,24 @@ const IntelligenceGraph: React.FC<IntelligenceGraphProps> = ({
 }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+
+  const adjacency = useMemo(() => {
+    const connectedNodeIds = new Set<string>();
+    const connectedEdgeIds = new Set<string>();
+
+    if (selectedNodeId) {
+      connectedNodeIds.add(selectedNodeId);
+      graphEdges.forEach((edge) => {
+        if (edge.source_node_id === selectedNodeId || edge.target_node_id === selectedNodeId) {
+          connectedNodeIds.add(edge.source_node_id);
+          connectedNodeIds.add(edge.target_node_id);
+          connectedEdgeIds.add(edge.id);
+        }
+      });
+    }
+
+    return { connectedNodeIds, connectedEdgeIds };
+  }, [graphEdges, selectedNodeId]);
 
   const layoutGraphNodes = useCallback(
     (inputNodes: GraphNode[], inputEdges: GraphEdge[]) => {
@@ -77,20 +105,32 @@ const IntelligenceGraph: React.FC<IntelligenceGraphProps> = ({
         degreeMap.set(edge.target_node_id, (degreeMap.get(edge.target_node_id) || 0) + 1);
       });
 
+      const sortedNodes = [...inputNodes].sort((left, right) => {
+        const leftDisplayType = getDisplayType(left);
+        const rightDisplayType = getDisplayType(right);
+        const leftPhase = phaseOrder.includes(leftDisplayType) ? phaseOrder.indexOf(leftDisplayType) : phaseOrder.length;
+        const rightPhase = phaseOrder.includes(rightDisplayType) ? phaseOrder.indexOf(rightDisplayType) : phaseOrder.length;
+        if (leftPhase !== rightPhase) {
+          return leftPhase - rightPhase;
+        }
+
+        return (degreeMap.get(right.id) || 0) - (degreeMap.get(left.id) || 0);
+      });
+
       if (layoutMode === 'timeline') {
-        return inputNodes.map((node, idx) => ({
+        return sortedNodes.map((node, idx) => ({
           id: node.id,
           data: {
             label: node.label,
             description: node.description,
-            type: node.type,
+            type: getDisplayType(node),
           },
           position: { x: 40 + idx * 240, y: 100 + (idx % 2) * 70 },
           style: {
-            background: getNodeColor(node.type),
+            background: getNodeColor(getDisplayType(node)),
             color: '#fff',
-            border: node.id === selectedNodeId ? '3px solid #0f172a' : '2px solid rgba(15,23,42,0.18)',
-            boxShadow: node.id === selectedNodeId ? '0 20px 45px rgba(15, 23, 42, 0.18)' : '0 10px 30px rgba(15, 23, 42, 0.08)',
+            border: selectedNodeId === node.id ? '3px solid #0f172a' : '2px solid rgba(15,23,42,0.18)',
+            boxShadow: selectedNodeId === node.id ? '0 20px 45px rgba(15, 23, 42, 0.18)' : '0 10px 30px rgba(15, 23, 42, 0.08)',
             borderRadius: '16px',
             padding: '12px',
             fontSize: '12px',
@@ -99,60 +139,59 @@ const IntelligenceGraph: React.FC<IntelligenceGraphProps> = ({
             textAlign: 'center' as const,
             transition: 'all 220ms ease',
           },
+          sourcePosition: Position.Right,
+          targetPosition: Position.Left,
         }));
       }
 
-      const grouped = orderedNodeTypes.map((type) => inputNodes.filter((node) => node.type === type));
-      const fallback = inputNodes.filter((node) => !orderedNodeTypes.includes(node.type));
-      if (fallback.length) {
-        grouped.push(fallback);
-      }
+      const groupedByDisplayType = phaseOrder.map((type) => sortedNodes.filter((node) => getDisplayType(node) === type));
 
-      const nodesPerRow = 3;
-      const clusterSpacingX = 380;
-      const clusterSpacingY = 240;
+      const nodesPerRow = 4;
+      const clusterSpacingX = 240;
+      const clusterSpacingY = 220;
 
-      return inputNodes.map((node) => {
-        const groupIndex = Math.max(0, grouped.findIndex((group) => group.some((item) => item.id === node.id)));
-        const group = grouped[groupIndex] || [];
+      return sortedNodes.map((node) => {
+        const displayType = getDisplayType(node);
+        const groupIndex = Math.max(0, groupedByDisplayType.findIndex((group) => group.some((item) => item.id === node.id)));
+        const group = groupedByDisplayType[groupIndex] || [];
         const indexInGroup = Math.max(0, group.findIndex((item) => item.id === node.id));
         const row = Math.floor(indexInGroup / nodesPerRow);
         const col = indexInGroup % nodesPerRow;
-        const clusterRow = Math.floor(groupIndex / 2);
-        const clusterCol = groupIndex % 2;
-        const importanceOffset = Math.min(degreeMap.get(node.id) || 0, 4) * 10;
+        const importanceOffset = Math.min(degreeMap.get(node.id) || 0, 4) * 12;
 
         return {
           id: node.id,
           data: {
             label: node.label,
             description: node.description,
-            type: node.type,
+            type: displayType,
             count: degreeMap.get(node.id) || 0,
           },
           position: {
-            x: 40 + clusterCol * clusterSpacingX + col * 190 + importanceOffset,
-            y: 40 + clusterRow * clusterSpacingY + row * 150,
+            x: 80 + col * clusterSpacingX + importanceOffset,
+            y: 60 + groupIndex * clusterSpacingY + row * 120,
           },
           style: {
-            background: getNodeColor(node.type),
+            background: getNodeColor(displayType),
             color: '#fff',
-            border: node.id === selectedNodeId ? '3px solid #0f172a' : '2px solid rgba(15,23,42,0.18)',
-            boxShadow: node.id === selectedNodeId ? '0 24px 50px rgba(15, 23, 42, 0.2)' : '0 10px 30px rgba(15, 23, 42, 0.08)',
+            border: selectedNodeId === node.id ? '3px solid #0f172a' : '2px solid rgba(15,23,42,0.18)',
+            boxShadow: selectedNodeId === node.id ? '0 24px 50px rgba(15, 23, 42, 0.2)' : '0 10px 30px rgba(15, 23, 42, 0.08)',
             borderRadius: '16px',
             padding: '12px',
             fontSize: '12px',
             fontWeight: 'bold',
             minWidth: '150px',
             textAlign: 'center' as const,
-            opacity: node.id === selectedNodeId ? 1 : 0.95,
-            transform: node.id === selectedNodeId ? 'scale(1.02)' : 'scale(1)',
+            opacity: selectedNodeId && selectedNodeId !== node.id && !adjacency.connectedNodeIds.has(node.id) ? 0.5 : 1,
+            transform: selectedNodeId === node.id ? 'scale(1.03)' : 'scale(1)',
             transition: 'all 220ms ease',
           },
+          sourcePosition: Position.Right,
+          targetPosition: Position.Left,
         };
       });
     },
-    [layoutMode, selectedNodeId]
+    [layoutMode, selectedNodeId, adjacency.connectedNodeIds]
   );
 
   // Convert graph data to React Flow format
@@ -169,7 +208,13 @@ const IntelligenceGraph: React.FC<IntelligenceGraphProps> = ({
         source: edge.source_node_id,
         target: edge.target_node_id,
         label: edge.relationship_type,
-        markerEnd: { type: MarkerType.ArrowClosed },
+        markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 },
+        type: 'smoothstep',
+        animated: selectedNodeId ? adjacency.connectedEdgeIds.has(edge.id) : true,
+        style: {
+          strokeWidth: adjacency.connectedEdgeIds.has(edge.id) ? 3 : 2,
+          opacity: selectedNodeId && !adjacency.connectedEdgeIds.has(edge.id) ? 0.25 : 0.9,
+        },
         data: {
           weight: edge.weight,
           relationship_type: edge.relationship_type,
@@ -178,7 +223,7 @@ const IntelligenceGraph: React.FC<IntelligenceGraphProps> = ({
 
       setEdges(rfEdges);
     }
-  }, [graphNodes, graphEdges, setNodes, setEdges, layoutGraphNodes]);
+  }, [graphNodes, graphEdges, setNodes, setEdges, layoutGraphNodes, selectedNodeId, adjacency.connectedEdgeIds]);
 
   const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
@@ -223,6 +268,7 @@ const IntelligenceGraph: React.FC<IntelligenceGraphProps> = ({
         fitView
         minZoom={0.2}
         maxZoom={1.6}
+        defaultEdgeOptions={{ type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed } }}
         proOptions={{ hideAttribution: true }}
       >
         <Background color="#cbd5e1" gap={20} />

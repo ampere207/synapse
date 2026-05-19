@@ -37,7 +37,8 @@ class AIExtractionService:
     def __init__(self):
         """Initialize Gemini API"""
         settings = get_settings()
-        genai.configure(api_key=settings.GOOGLE_API_KEY)
+        if settings.GEMINI_API_KEY:
+            genai.configure(api_key=settings.GEMINI_API_KEY)
         self.model = genai.GenerativeModel("gemini-1.5-flash")
         self.extraction_cache = {}  # Simple in-memory cache
 
@@ -339,3 +340,90 @@ Ensure all confidence scores are between 0 and 1. Return ONLY the JSON, no other
             setattr(extraction, bucket_name, list(deduped.values()))
 
         return extraction
+
+    def _heuristic_extract(
+        self,
+        transcript_text: str,
+        meeting_title: Optional[str] = None,
+        attendees: Optional[List[str]] = None,
+    ) -> ExtractionOutput:
+        """Fallback extraction when the model is unavailable or returns no structure."""
+        lines = [line.strip() for line in transcript_text.splitlines() if line.strip()]
+        lower_lines = [line.lower() for line in lines]
+
+        topics: list[ExtractionResult] = []
+        decisions: list[ExtractionResult] = []
+        actions: list[ExtractionResult] = []
+        blockers: list[ExtractionResult] = []
+
+        keyword_topics = [
+            ("distributed locking", "Distributed Locking"),
+            ("idempot", "Idempotency"),
+            ("replay", "Workflow Replay"),
+            ("snapshot", "Snapshot Checkpoints"),
+            ("graph", "Graph Usability"),
+            ("gemini", "Gemini Batching"),
+            ("memory", "Organizational Memory"),
+            ("semantic retrieval", "Semantic Retrieval"),
+            ("monitoring", "Monitoring"),
+            ("lease", "Lease Renewal"),
+        ]
+
+        for keyword, title in keyword_topics:
+            if any(keyword in line for line in lower_lines):
+                topics.append(
+                    ExtractionResult(
+                        entity_type="topic",
+                        title=title,
+                        description=f"Meeting discussion related to {title.lower()}.",
+                        confidence_score=0.68,
+                        tags=[title.replace(" ", "_").lower()],
+                    )
+                )
+
+        for line in lines:
+            lower = line.lower()
+            if any(marker in lower for marker in ["let's", "lets", "agreed", "prioritize", "officially", "let us", "compromise"]):
+                clean_title = re.sub(r"^[\w\s\[\]:-]+", "", line).strip() or line
+                decisions.append(
+                    ExtractionResult(
+                        entity_type="decision",
+                        title=clean_title[:90],
+                        description=line,
+                        confidence_score=0.72,
+                        tags=["decision"],
+                    )
+                )
+            if any(marker in lower for marker in ["can you", "i'll handle", "i will handle", "owner", "before friday", "next step"]):
+                actions.append(
+                    ExtractionResult(
+                        entity_type="action",
+                        title=line[:90],
+                        description=line,
+                        confidence_score=0.78,
+                        assigned_to=(attendees[0] if attendees else None),
+                        priority="medium",
+                        tags=["action"],
+                    )
+                )
+            if any(marker in lower for marker in ["issue", "danger", "duplicate", "corrupt", "not idempotent", "slow", "cluttered", "inconsistent"]):
+                blockers.append(
+                    ExtractionResult(
+                        entity_type="blocker",
+                        title=line[:90],
+                        description=line,
+                        confidence_score=0.74,
+                        tags=["blocker"],
+                    )
+                )
+
+        summary = f"{meeting_title or 'Meeting'} summary generated from transcript heuristics."
+        return self._normalize_extraction_output(
+            ExtractionOutput(
+                decisions=decisions[:8],
+                actions=actions[:8],
+                blockers=blockers[:8],
+                topics=topics[:10],
+                meeting_summary=summary,
+            )
+        )
